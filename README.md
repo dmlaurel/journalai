@@ -1,0 +1,2 @@
+# journalai
+ai journaling app
