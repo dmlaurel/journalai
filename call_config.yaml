@@ -1,0 +1,12 @@
+# List of recipient numbers to call. Numbers can be in any common format.
+# They will be normalized to E.164 automatically.
+
+#  
+
+numbers:
+  - "+17188010345"
+  - "+18603048753"
+
+# Optional overrides:
+# agent_id: "agent_XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# label: "JournalAI Phone Number"
