@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 import argparse
 import logging
+import threading
 from dotenv import load_dotenv
 from src.gmail_client import send_email
 
@@ -52,11 +53,21 @@ How/Why they want to use Journie:
 {message}
 """
         
-        # Send email via Gmail API
-        logger.info(f"Attempting to send email to {recipient}")
-        send_email(recipient, subject, body)
-        logger.info("Email sent successfully")
+        # Send email via Gmail API asynchronously to avoid blocking the response
+        def send_email_async():
+            try:
+                logger.info(f"Attempting to send email to {recipient}")
+                send_email(recipient, subject, body)
+                logger.info("Email sent successfully")
+            except Exception as e:
+                logger.error(f"Failed to send email asynchronously: {str(e)}", exc_info=True)
         
+        # Start email sending in background thread
+        email_thread = threading.Thread(target=send_email_async)
+        email_thread.daemon = True
+        email_thread.start()
+        
+        # Return success immediately (don't wait for email)
         return jsonify({'success': True, 'message': 'Sign up submitted successfully'}), 200
     
     except FileNotFoundError as e:
