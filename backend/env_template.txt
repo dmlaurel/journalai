@@ -6,10 +6,31 @@ TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
 TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
 TWILIO_PHONE_NUMBER=your_twilio_phone_number_here
 
-# SMTP Configuration (for Gmail)
+# Gmail API Configuration (FREE, recommended for cloud platforms like Render.com)
+# Works via HTTPS, so it's not blocked by cloud platforms
+# Setup: https://developers.google.com/gmail/api/quickstart/python
+# 1. Go to https://console.cloud.google.com/
+# 2. Create a project or select existing
+# 3. Enable Gmail API
+# 4. Create OAuth 2.0 credentials (Desktop app type)
+# 5. Use OAuth flow to get refresh token (one-time setup)
+GMAIL_CLIENT_ID=your_gmail_client_id_here
+GMAIL_CLIENT_SECRET=your_gmail_client_secret_here
+GMAIL_REFRESH_TOKEN=your_gmail_refresh_token_here
+GMAIL_USER_EMAIL=your_gmail_address@gmail.com
+
+# SendGrid Configuration (alternative to Gmail API)
+# Sign up at https://sendgrid.com (free tier: 100 emails/day)
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+SENDGRID_FROM_EMAIL=your_verified_sender_email@yourdomain.com
+# Note: SendGrid requires sender verification. For free tier, use a verified email address.
+
+# SMTP Configuration (for Gmail - local development only)
+# Note: Most cloud platforms block SMTP connections. Use Gmail API or SendGrid for production.
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USERNAME=your_gmail_address@gmail.com
 SMTP_PASSWORD=your_gmail_app_password
+
 # Email address to send sign-ups to
 RECIPIENT_EMAIL=hello@zenbul.com
