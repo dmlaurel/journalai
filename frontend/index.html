@@ -16,16 +16,35 @@
             line-height: 1.6;
             color: #333;
             background-color: #fff;
-            padding: 2rem;
+            padding: 0;
             max-width: 800px;
             margin: 0 auto;
         }
 
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
         h1 {
-            font-size: 2.5rem;
+            font-size: 3.5rem;
             font-weight: 300;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             color: #000;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-subtitle {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            font-weight: 300;
         }
 
         h2 {
@@ -42,9 +61,8 @@
             color: #555;
         }
 
-        .description {
-            font-size: 1.1rem;
-            margin-bottom: 3rem;
+        .content {
+            padding: 0 2rem 4rem 2rem;
         }
 
         .feature {
@@ -65,20 +83,32 @@
 
         .signup-button {
             display: inline-block;
-            padding: 0.75rem 2rem;
+            padding: 1rem 3rem;
             background-color: #000;
             color: #fff;
             text-decoration: none;
             border: none;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-family: inherit;
+            font-weight: 500;
             cursor: pointer;
-            margin-top: 2rem;
-            transition: background-color 0.2s;
+            margin: 0;
+            transition: all 0.2s;
+            border-radius: 4px;
+            letter-spacing: 0.01em;
         }
 
         .signup-button:hover {
             background-color: #333;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .signup-description {
+            font-size: 0.95rem;
+            color: #888;
+            margin-top: 1.5rem;
+            max-width: 500px;
         }
 
         .modal-overlay {
@@ -209,36 +239,41 @@
     </style>
 </head>
 <body>
-    <h1>Journie</h1>
-    
-    <p class="description">
-        A journal agent that gives you a daily phone call with a journaling prompt, 
-        helping you reflect and document your thoughts.
-    </p>
-
-    <h2>How it works</h2>
-    
-    <div class="feature">
-        <p class="feature-title">Daily Phone Calls</p>
-        <p>Receive a daily phone call with personalized journaling prompts designed to help you reflect on your day, thoughts, and experiences.</p>
+    <div class="hero">
+        <h1>Journie</h1>
+        <p class="hero-subtitle">
+            A journal agent that gives you a daily phone call with a journaling prompt, 
+            helping you reflect and document your thoughts.
+        </p>
+        <button class="signup-button" onclick="openModal()">Sign Up</button>
+        <p class="signup-description">
+            Join early access and start your daily reflection journey today.
+        </p>
     </div>
 
-    <div class="feature">
-        <p class="feature-title">Full Transcripts</p>
-        <p>Every conversation is transcribed and saved. Access your complete journal entries anytime through our website.</p>
-    </div>
+    <div class="content">
+        <h2>How it works</h2>
+        
+        <div class="feature">
+            <p class="feature-title">Daily Phone Calls</p>
+            <p>Receive a daily phone call with personalized journaling prompts designed to help you reflect on your day, thoughts, and experiences.</p>
+        </div>
 
-    <div class="feature">
-        <p class="feature-title">AI-Powered Summaries</p>
-        <p>Get concise summaries of your journal entries, making it easy to review your reflections and insights over time.</p>
-    </div>
+        <div class="feature">
+            <p class="feature-title">Full Transcripts</p>
+            <p>Every conversation is transcribed and saved. Access your complete journal entries anytime through our website.</p>
+        </div>
 
-    <div class="feature">
-        <p class="feature-title">Trends & Insights</p>
-        <p>Discover patterns and trends in your entries through detailed metadata analysis. Understand your emotional patterns, recurring themes, and personal growth over time.</p>
-    </div>
+        <div class="feature">
+            <p class="feature-title">AI-Powered Summaries</p>
+            <p>Get concise summaries of your journal entries, making it easy to review your reflections and insights over time.</p>
+        </div>
 
-    <button class="signup-button" onclick="openModal()">Sign Up</button>
+        <div class="feature">
+            <p class="feature-title">Trends & Insights</p>
+            <p>Discover patterns and trends in your entries through detailed metadata analysis. Understand your emotional patterns, recurring themes, and personal growth over time.</p>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
         <div class="modal" onclick="event.stopPropagation()">
@@ -299,12 +334,18 @@
             // Determine API endpoint based on current location
             // If frontend is running on localhost (local development), use local backend
             // Otherwise (GitHub Pages, production, etc.), always use Render.com backend
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1' ||
+                               window.location.protocol === 'file:';
             const apiUrl = isLocalhost 
                 ? 'http://localhost:5000/api/signup'  // Local development with --local flag
                 : 'https://journalai-ergq.onrender.com/api/signup';  // Production on Render.com
 
             try {
+                console.log('Frontend location:', window.location.href);
+                console.log('Hostname:', window.location.hostname);
+                console.log('Protocol:', window.location.protocol);
+                console.log('Is localhost?', isLocalhost);
                 console.log('Sending request to:', apiUrl);
                 console.log('Request data:', formData);
                 
