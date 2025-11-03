@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journie - Your Daily Journal Companion</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fff;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 3rem;
+            color: #000;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #222;
+        }
+
+        p {
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+
+        .description {
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+        }
+
+        .feature {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .feature:last-child {
+            border-bottom: none;
+        }
+
+        .feature-title {
+            font-weight: 500;
+            color: #000;
+            margin-bottom: 0.5rem;
+        }
+
+        .signup-button {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background-color: #000;
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            font-size: 1rem;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 2rem;
+            transition: background-color 0.2s;
+        }
+
+        .signup-button:hover {
+            background-color: #333;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 4px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 1;
+        }
+
+        .close-button:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #000;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #000;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #000;
+            color: #fff;
+            border: none;
+            font-size: 1rem;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+
+        .submit-button:hover {
+            background-color: #333;
+        }
+
+        .submit-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .message.error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+    <h1>Journie</h1>
+    
+    <p class="description">
+        A journal agent that gives you a daily phone call with a journaling prompt, 
+        helping you reflect and document your thoughts effortlessly.
+    </p>
+
+    <h2>How it works</h2>
+    
+    <div class="feature">
+        <p class="feature-title">Daily Phone Calls</p>
+        <p>Receive a daily phone call with personalized journaling prompts designed to help you reflect on your day, thoughts, and experiences.</p>
+    </div>
+
+    <div class="feature">
+        <p class="feature-title">Full Transcripts</p>
+        <p>Every conversation is transcribed and saved. Access your complete journal entries anytime through our website.</p>
+    </div>
+
+    <div class="feature">
+        <p class="feature-title">AI-Powered Summaries</p>
+        <p>Get concise summaries of your journal entries, making it easy to review your reflections and insights over time.</p>
+    </div>
+
+    <div class="feature">
+        <p class="feature-title">Trends & Insights</p>
+        <p>Discover patterns and trends in your entries through detailed metadata analysis. Understand your emotional patterns, recurring themes, and personal growth over time.</p>
+    </div>
+
+    <button class="signup-button" onclick="openModal()">Sign Up</button>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>Sign Up for Journie</h2>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="signupForm" onsubmit="submitForm(event)">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="message">How or why do you want to use Journie?</label>
+                    <textarea id="message" name="message" required></textarea>
+                </div>
+                <button type="submit" class="submit-button" id="submitButton">Submit</button>
+                <div class="message" id="messageDiv"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.getElementById('signupForm').reset();
+            const messageDiv = document.getElementById('messageDiv');
+            messageDiv.style.display = 'none';
+            messageDiv.className = 'message';
+        }
+
+        function closeModalOnOverlay(event) {
+            if (event.target.id === 'modalOverlay') {
+                closeModal();
+            }
+        }
+
+        async function submitForm(event) {
+            event.preventDefault();
+            
+            const submitButton = document.getElementById('submitButton');
+            const messageDiv = document.getElementById('messageDiv');
+            const form = document.getElementById('signupForm');
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Sending...';
+            messageDiv.style.display = 'none';
+
+            const formData = {
+                email: document.getElementById('email').value,
+                message: document.getElementById('message').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:5000/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Thank you! We\'ll be in touch soon.';
+                    messageDiv.style.display = 'block';
+                    form.reset();
+                    setTimeout(() => {
+                        closeModal();
+                    }, 2000);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.error || 'Something went wrong. Please try again.';
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Unable to connect. Please try again later.';
+                messageDiv.style.display = 'block';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit';
+            }
+        }
+    </script>
+</body>
+</html>
+
