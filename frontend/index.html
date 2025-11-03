@@ -305,6 +305,9 @@
                 : 'https://journalai-ergq.onrender.com/api/signup';  // Production on Render.com
 
             try {
+                console.log('Sending request to:', apiUrl);
+                console.log('Request data:', formData);
+                
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
@@ -313,7 +316,18 @@
                     body: JSON.stringify(formData)
                 });
 
-                const data = await response.json();
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                let data;
+                try {
+                    const text = await response.text();
+                    console.log('Response text:', text);
+                    data = text ? JSON.parse(text) : {};
+                } catch (parseError) {
+                    console.error('Failed to parse response as JSON:', parseError);
+                    data = { error: 'Invalid response from server' };
+                }
 
                 if (response.ok) {
                     messageDiv.className = 'message success';
@@ -325,12 +339,13 @@
                     }, 2000);
                 } else {
                     messageDiv.className = 'message error';
-                    messageDiv.textContent = data.error || 'Something went wrong. Please try again.';
+                    messageDiv.textContent = data.error || `Something went wrong (${response.status}). Please try again.`;
                     messageDiv.style.display = 'block';
                 }
             } catch (error) {
+                console.error('Request error:', error);
                 messageDiv.className = 'message error';
-                messageDiv.textContent = 'Unable to connect. Please try again later.';
+                messageDiv.textContent = `Unable to connect: ${error.message}. Please try again later.`;
                 messageDiv.style.display = 'block';
             } finally {
                 submitButton.disabled = false;
