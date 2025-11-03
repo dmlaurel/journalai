@@ -57,7 +57,11 @@ if __name__ == '__main__':
     parser.add_argument('--local', action='store_true', help='Run in local mode (localhost:5000)')
     args = parser.parse_args()
     
-    if args.local:
+    # Check if running on Render.com (PORT env var is set) or explicitly in local mode
+    is_production = os.environ.get('PORT') is not None
+    is_local = args.local and not is_production
+    
+    if is_local:
         # Local development mode
         app.run(debug=True, host='127.0.0.1', port=5000)
     else:
