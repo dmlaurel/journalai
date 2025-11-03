@@ -34,3 +34,17 @@ SMTP_PASSWORD=your_gmail_app_password
 
 # Email address to send sign-ups to
 RECIPIENT_EMAIL=hello@zenbul.com
+
+# Database Configuration
+# For local development:
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=journalai
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# For Render.com, use DATABASE_URL (provided automatically by Render)
+# DATABASE_URL=postgresql://user:password@host:port/dbname
+
+# Flask secret key for sessions (generate a random string)
+SECRET_KEY=your_secret_key_here

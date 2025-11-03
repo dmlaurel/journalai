@@ -19,11 +19,91 @@
             padding: 0;
             max-width: 800px;
             margin: 0 auto;
+            position: relative;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 800px;
+            padding: 1rem 2rem;
+            background-color: #fff;
+            z-index: 100;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .login-button {
+            padding: 0.5rem 1.5rem;
+            background-color: transparent;
+            color: #000;
+            border: 1px solid #000;
+            font-size: 0.95rem;
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .login-button:hover {
+            background-color: #000;
+            color: #fff;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #000;
+        }
+
+        .logout-button {
+            padding: 0.5rem 1rem;
+            background-color: transparent;
+            color: #666;
+            border: 1px solid #ddd;
+            font-size: 0.9rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .logout-button:hover {
+            background-color: #f5f5f5;
+            border-color: #999;
+        }
+
+        .logged-in-page {
+            display: none;
+            padding: 6rem 2rem 4rem 2rem;
+        }
+
+        .logged-in-page.active {
+            display: block;
+        }
+
+        .landing-page {
+            display: block;
+        }
+
+        .landing-page.hidden {
+            display: none;
         }
 
         .hero {
             text-align: center;
-            padding: 4rem 2rem;
+            padding: 6rem 2rem 4rem 2rem;
             min-height: 60vh;
             display: flex;
             flex-direction: column;
@@ -236,9 +316,70 @@
             color: #991b1b;
             border: 1px solid #fecaca;
         }
+
+        .login-step {
+            display: none;
+        }
+
+        .login-step.active {
+            display: block;
+        }
+
+        .code-input {
+            font-size: 1.5rem;
+            letter-spacing: 0.5rem;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .back-link {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .back-link:hover {
+            color: #000;
+            text-decoration: underline;
+        }
+
+        .profile-section {
+            margin-top: 2rem;
+            padding: 2rem;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .profile-field {
+            margin-bottom: 1rem;
+        }
+
+        .profile-field-label {
+            font-weight: 500;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-field-value {
+            font-size: 1.1rem;
+            color: #000;
+        }
     </style>
 </head>
 <body>
+    <div class="header" id="header">
+        <div id="loginButtonContainer">
+            <button class="login-button" onclick="openLoginModal()">Log In</button>
+        </div>
+        <div class="user-info" id="userInfoContainer" style="display: none;">
+            <span class="user-name" id="userName"></span>
+            <button class="logout-button" onclick="logout()">Log Out</button>
+        </div>
+    </div>
+
+    <div class="landing-page" id="landingPage">
     <div class="hero">
         <h1>Journie</h1>
         <p class="hero-subtitle">
@@ -274,45 +415,193 @@
             <p>Discover patterns and trends in your entries through detailed metadata analysis. Understand your emotional patterns, recurring themes, and personal growth over time.</p>
         </div>
     </div>
+    </div>
+
+    <div class="logged-in-page" id="loggedInPage">
+        <h1>Welcome back!</h1>
+        <div class="profile-section">
+            <h2>Your Profile</h2>
+            <div class="profile-field">
+                <div class="profile-field-label">Email</div>
+                <div class="profile-field-value" id="profileEmail"></div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Name</div>
+                <div class="profile-field-value" id="profileName"></div>
+            </div>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
         <div class="modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h2>Sign Up for Journie</h2>
-                <button class="close-button" onclick="closeModal()">&times;</button>
+            <!-- Signup Modal -->
+            <div id="signupModal">
+                <div class="modal-header">
+                    <h2>Sign Up for Journie</h2>
+                    <button class="close-button" onclick="closeModal()">&times;</button>
+                </div>
+                <form id="signupForm" onsubmit="submitForm(event)">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">How or why do you want to use Journie?</label>
+                        <textarea id="message" name="message" required></textarea>
+                    </div>
+                    <button type="submit" class="submit-button" id="submitButton">Submit</button>
+                    <div class="message" id="messageDiv"></div>
+                </form>
             </div>
-            <form id="signupForm" onsubmit="submitForm(event)">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required>
+
+            <!-- Login Modal -->
+            <div id="loginModal" style="display: none;">
+                <div class="modal-header">
+                    <h2>Log In to Journie</h2>
+                    <button class="close-button" onclick="closeLoginModal()">&times;</button>
                 </div>
-                <div class="form-group">
-                    <label for="message">How or why do you want to use Journie?</label>
-                    <textarea id="message" name="message" required></textarea>
+                <!-- Step 1: Email Input -->
+                <div class="login-step active" id="loginStepEmail">
+                    <form id="loginEmailForm" onsubmit="requestLoginCode(event)">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" name="email" required>
+                        </div>
+                        <button type="submit" class="submit-button" id="requestCodeButton">Send Login Code</button>
+                        <div class="message" id="loginEmailMessageDiv"></div>
+                    </form>
                 </div>
-                <button type="submit" class="submit-button" id="submitButton">Submit</button>
-                <div class="message" id="messageDiv"></div>
-            </form>
+                <!-- Step 2: Code Verification -->
+                <div class="login-step" id="loginStepCode">
+                    <p style="margin-bottom: 1rem; color: #666;">We sent a 6-digit code to your email. Enter it below:</p>
+                    <form id="loginCodeForm" onsubmit="verifyLoginCode(event)">
+                        <div class="form-group">
+                            <label for="loginCode">Verification Code</label>
+                            <input type="text" id="loginCode" name="code" maxlength="6" pattern="[0-9]{6}" class="code-input" required>
+                        </div>
+                        <button type="submit" class="submit-button" id="verifyCodeButton">Verify Code</button>
+                        <div style="margin-top: 1rem; text-align: center;">
+                            <a href="#" class="back-link" onclick="goBackToEmailStep(event)">← Back to email</a>
+                        </div>
+                        <div class="message" id="loginCodeMessageDiv"></div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Check if user is logged in on page load
+        let currentUser = null;
+        
+        function init() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    showLoggedInState();
+                } catch (e) {
+                    console.error('Failed to parse saved user:', e);
+                    localStorage.removeItem('currentUser');
+                }
+            }
+        }
+
+        function showLoggedInState() {
+            if (currentUser) {
+                document.getElementById('landingPage').classList.add('hidden');
+                document.getElementById('loggedInPage').classList.add('active');
+                document.getElementById('loginButtonContainer').style.display = 'none';
+                document.getElementById('userInfoContainer').style.display = 'flex';
+                document.getElementById('userName').textContent = currentUser.first_name 
+                    ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
+                    : currentUser.email;
+                document.getElementById('profileEmail').textContent = currentUser.email;
+                document.getElementById('profileName').textContent = currentUser.first_name && currentUser.last_name
+                    ? `${currentUser.first_name} ${currentUser.last_name}`
+                    : currentUser.first_name || currentUser.last_name || 'Not set';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            document.getElementById('landingPage').classList.remove('hidden');
+            document.getElementById('loggedInPage').classList.remove('active');
+            document.getElementById('loginButtonContainer').style.display = 'block';
+            document.getElementById('userInfoContainer').style.display = 'none';
+        }
+
         function openModal() {
             document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById('signupModal').style.display = 'block';
+            document.getElementById('loginModal').style.display = 'none';
+        }
+
+        function openLoginModal() {
+            document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById('signupModal').style.display = 'none';
+            document.getElementById('loginModal').style.display = 'block';
+            // Reset to email step
+            document.getElementById('loginStepEmail').classList.add('active');
+            document.getElementById('loginStepCode').classList.remove('active');
+            document.getElementById('loginEmailForm').reset();
+            document.getElementById('loginCodeForm').reset();
+            hideMessages();
         }
 
         function closeModal() {
             document.getElementById('modalOverlay').classList.remove('active');
             document.getElementById('signupForm').reset();
+            hideMessages();
+        }
+
+        function closeLoginModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.getElementById('loginEmailForm').reset();
+            document.getElementById('loginCodeForm').reset();
+            // Reset to email step
+            document.getElementById('loginStepEmail').classList.add('active');
+            document.getElementById('loginStepCode').classList.remove('active');
+            hideMessages();
+        }
+
+        function hideMessages() {
             const messageDiv = document.getElementById('messageDiv');
             messageDiv.style.display = 'none';
             messageDiv.className = 'message';
+            const loginEmailMessageDiv = document.getElementById('loginEmailMessageDiv');
+            loginEmailMessageDiv.style.display = 'none';
+            loginEmailMessageDiv.className = 'message';
+            const loginCodeMessageDiv = document.getElementById('loginCodeMessageDiv');
+            loginCodeMessageDiv.style.display = 'none';
+            loginCodeMessageDiv.className = 'message';
         }
 
         function closeModalOnOverlay(event) {
             if (event.target.id === 'modalOverlay') {
                 closeModal();
+                closeLoginModal();
             }
+        }
+
+        function goBackToEmailStep(event) {
+            event.preventDefault();
+            document.getElementById('loginStepEmail').classList.add('active');
+            document.getElementById('loginStepCode').classList.remove('active');
+            document.getElementById('loginCodeForm').reset();
+            const loginCodeMessageDiv = document.getElementById('loginCodeMessageDiv');
+            loginCodeMessageDiv.style.display = 'none';
+        }
+
+        function getApiUrl(endpoint) {
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1' ||
+                               window.location.protocol === 'file:';
+            const baseUrl = isLocalhost 
+                ? 'http://localhost:5000'
+                : 'https://journalai-ergq.onrender.com';
+            return `${baseUrl}${endpoint}`;
         }
 
         async function submitForm(event) {
@@ -334,21 +623,9 @@
             // Determine API endpoint based on current location
             // If frontend is running on localhost (local development), use local backend
             // Otherwise (GitHub Pages, production, etc.), always use Render.com backend
-            const isLocalhost = window.location.hostname === 'localhost' || 
-                               window.location.hostname === '127.0.0.1' ||
-                               window.location.protocol === 'file:';
-            const apiUrl = isLocalhost 
-                ? 'http://localhost:5000/api/signup'  // Local development with --local flag
-                : 'https://journalai-ergq.onrender.com/api/signup';  // Production on Render.com
+            const apiUrl = getApiUrl('/api/signup');
 
             try {
-                console.log('Frontend location:', window.location.href);
-                console.log('Hostname:', window.location.hostname);
-                console.log('Protocol:', window.location.protocol);
-                console.log('Is localhost?', isLocalhost);
-                console.log('Sending request to:', apiUrl);
-                console.log('Request data:', formData);
-                
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
@@ -393,6 +670,121 @@
                 submitButton.textContent = 'Submit';
             }
         }
+
+        async function requestLoginCode(event) {
+            event.preventDefault();
+            
+            const requestCodeButton = document.getElementById('requestCodeButton');
+            const messageDiv = document.getElementById('loginEmailMessageDiv');
+            const email = document.getElementById('loginEmail').value;
+            
+            requestCodeButton.disabled = true;
+            requestCodeButton.textContent = 'Sending...';
+            messageDiv.style.display = 'none';
+
+            const apiUrl = getApiUrl('/api/login/request-code');
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: email.toLowerCase().trim() })
+                });
+
+                let data;
+                try {
+                    const text = await response.text();
+                    data = text ? JSON.parse(text) : {};
+                } catch (parseError) {
+                    data = { error: 'Invalid response from server' };
+                }
+
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = data.message || 'Login code sent! Check your email.';
+                    messageDiv.style.display = 'block';
+                    // Move to code verification step
+                    document.getElementById('loginStepEmail').classList.remove('active');
+                    document.getElementById('loginStepCode').classList.add('active');
+                    document.getElementById('loginCode').focus();
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.error || `Something went wrong (${response.status}). Please try again.`;
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Request error:', error);
+                messageDiv.className = 'message error';
+                messageDiv.textContent = `Unable to connect: ${error.message}. Please try again later.`;
+                messageDiv.style.display = 'block';
+            } finally {
+                requestCodeButton.disabled = false;
+                requestCodeButton.textContent = 'Send Login Code';
+            }
+        }
+
+        async function verifyLoginCode(event) {
+            event.preventDefault();
+            
+            const verifyCodeButton = document.getElementById('verifyCodeButton');
+            const messageDiv = document.getElementById('loginCodeMessageDiv');
+            const email = document.getElementById('loginEmail').value;
+            const code = document.getElementById('loginCode').value;
+            
+            verifyCodeButton.disabled = true;
+            verifyCodeButton.textContent = 'Verifying...';
+            messageDiv.style.display = 'none';
+
+            const apiUrl = getApiUrl('/api/login/verify-code');
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        email: email.toLowerCase().trim(),
+                        code: code
+                    })
+                });
+
+                let data;
+                try {
+                    const text = await response.text();
+                    data = text ? JSON.parse(text) : {};
+                } catch (parseError) {
+                    data = { error: 'Invalid response from server' };
+                }
+
+                if (response.ok && data.success && data.user) {
+                    // Store user data
+                    currentUser = data.user;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    // Close modal and show logged in state
+                    closeLoginModal();
+                    showLoggedInState();
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.error || 'Invalid or expired code. Please try again.';
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Request error:', error);
+                messageDiv.className = 'message error';
+                messageDiv.textContent = `Unable to connect: ${error.message}. Please try again later.`;
+                messageDiv.style.display = 'block';
+            } finally {
+                verifyCodeButton.disabled = false;
+                verifyCodeButton.textContent = 'Verify Code';
+            }
+        }
+
+        // Initialize on page load
+        init();
     </script>
 </body>
 </html>
