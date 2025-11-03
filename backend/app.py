@@ -7,6 +7,7 @@ import threading
 from dotenv import load_dotenv
 from src.gmail_client import send_email
 from src.auth import request_login_code, verify_login_code, get_user_by_email
+from src.db import get_db_connection
 
 load_dotenv()
 
@@ -35,50 +36,114 @@ def handle_signup():
             return jsonify({'error': 'No data provided'}), 400
         
         email = data.get('email')
-        message = data.get('message')
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        message = data.get('message', '').strip()
         
-        if not email or not message:
-            logger.warning(f"Missing required fields - email: {bool(email)}, message: {bool(message)}")
-            return jsonify({'error': 'Email and message are required'}), 400
+        if not email:
+            logger.warning("Missing required field: email")
+            return jsonify({'error': 'Email is required'}), 400
+        
+        if not first_name:
+            logger.warning("Missing required field: first_name")
+            return jsonify({'error': 'First name is required'}), 400
+        
+        if not last_name:
+            logger.warning("Missing required field: last_name")
+            return jsonify({'error': 'Last name is required'}), 400
+        
+        # Normalize email (lowercase)
+        email = email.lower().strip()
         
         logger.info(f"Processing signup for email: {email}")
         
-        # Destination email
-        recipient = os.getenv('RECIPIENT_EMAIL', 'hello@zenbul.com')
+        # Check if user already exists
+        try:
+            existing_user = get_user_by_email(email)
+            if existing_user:
+                logger.warning(f"User with email {email} already exists")
+                return jsonify({'error': 'An account with this email already exists. Please log in instead.'}), 400
+        except Exception as e:
+            logger.error(f"Error checking existing user: {str(e)}", exc_info=True)
         
-        # Create email content
-        subject = f"New Journie Sign Up: {email}"
-        body = f"""New sign up for Journie:
+        # Create user in database
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Insert new user
+                cursor.execute("""
+                    INSERT INTO users (email, first_name, last_name, created_at, updated_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING id, email, first_name, last_name
+                """, (email, first_name, last_name))
+                
+                user = cursor.fetchone()
+                cursor.close()
+                
+                if not user:
+                    raise Exception("Failed to create user")
+                
+                user_id, user_email, user_first_name, user_last_name = user
+                
+                # Prepare user data for response
+                user_data = {
+                    'id': user_id,
+                    'email': user_email,
+                    'first_name': user_first_name,
+                    'last_name': user_last_name
+                }
+                
+                # Store user info in session
+                session['user_id'] = user_id
+                session['user_email'] = user_email
+                
+                logger.info(f"User created successfully: {email}")
+                
+                # Send notification email asynchronously (optional)
+                if message:
+                    recipient = os.getenv('RECIPIENT_EMAIL', 'hello@zenbul.com')
+                    subject = f"New Journie Sign Up: {email}"
+                    body = f"""New sign up for Journie:
 
 Email: {email}
+Name: {first_name} {last_name}
 
 How/Why they want to use Journie:
 {message}
 """
-        
-        # Send email via Gmail API asynchronously to avoid blocking the response
-        def send_email_async():
-            try:
-                logger.info(f"Attempting to send email to {recipient}")
-                send_email(recipient, subject, body)
-                logger.info("Email sent successfully")
-            except Exception as e:
-                logger.error(f"Failed to send email asynchronously: {str(e)}", exc_info=True)
-        
-        # Start email sending in background thread
-        email_thread = threading.Thread(target=send_email_async)
-        email_thread.daemon = True
-        email_thread.start()
-        
-        # Return success immediately (don't wait for email)
-        return jsonify({'success': True, 'message': 'Sign up submitted successfully'}), 200
+                    
+                    def send_email_async():
+                        try:
+                            send_email(recipient, subject, body)
+                            logger.info("Notification email sent successfully")
+                        except Exception as e:
+                            logger.error(f"Failed to send notification email: {str(e)}", exc_info=True)
+                    
+                    email_thread = threading.Thread(target=send_email_async)
+                    email_thread.daemon = True
+                    email_thread.start()
+                
+                # Return user data for automatic login
+                return jsonify({
+                    'success': True,
+                    'user': user_data,
+                    'message': 'Account created successfully'
+                }), 200
+                
+        except Exception as db_error:
+            # Check if it's a unique constraint violation (duplicate email)
+            error_str = str(db_error).lower()
+            if 'unique' in error_str or 'duplicate' in error_str:
+                logger.warning(f"User with email {email} already exists (database constraint)")
+                return jsonify({'error': 'An account with this email already exists. Please log in instead.'}), 400
+            else:
+                logger.error(f"Database error creating user: {str(db_error)}", exc_info=True)
+                raise
     
-    except FileNotFoundError as e:
-        logger.error(f"Gmail credentials not configured: {str(e)}")
-        return jsonify({'error': f'Gmail credentials not configured: {str(e)}'}), 500
     except Exception as e:
         logger.error(f"Failed to submit sign up: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to submit sign up: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to create account: {str(e)}'}), 500
 
 @app.route('/health', methods=['GET'])
 def health():

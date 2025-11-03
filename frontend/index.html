@@ -446,10 +446,18 @@
                         <input type="email" id="email" name="email" required>
                     </div>
                     <div class="form-group">
-                        <label for="message">How or why do you want to use Journie?</label>
-                        <textarea id="message" name="message" required></textarea>
+                        <label for="firstName">First Name</label>
+                        <input type="text" id="firstName" name="first_name" required>
                     </div>
-                    <button type="submit" class="submit-button" id="submitButton">Submit</button>
+                    <div class="form-group">
+                        <label for="lastName">Last Name</label>
+                        <input type="text" id="lastName" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">How or why do you want to use Journie? (Optional)</label>
+                        <textarea id="message" name="message"></textarea>
+                    </div>
+                    <button type="submit" class="submit-button" id="submitButton">Sign Up</button>
                     <div class="message" id="messageDiv"></div>
                 </form>
             </div>
@@ -612,17 +620,16 @@
             const form = document.getElementById('signupForm');
             
             submitButton.disabled = true;
-            submitButton.textContent = 'Sending...';
+            submitButton.textContent = 'Creating Account...';
             messageDiv.style.display = 'none';
 
             const formData = {
-                email: document.getElementById('email').value,
-                message: document.getElementById('message').value
+                email: document.getElementById('email').value.trim(),
+                first_name: document.getElementById('firstName').value.trim(),
+                last_name: document.getElementById('lastName').value.trim(),
+                message: document.getElementById('message').value.trim()
             };
 
-            // Determine API endpoint based on current location
-            // If frontend is running on localhost (local development), use local backend
-            // Otherwise (GitHub Pages, production, etc.), always use Render.com backend
             const apiUrl = getApiUrl('/api/signup');
 
             try {
@@ -634,27 +641,23 @@
                     body: JSON.stringify(formData)
                 });
 
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-
                 let data;
                 try {
                     const text = await response.text();
-                    console.log('Response text:', text);
                     data = text ? JSON.parse(text) : {};
                 } catch (parseError) {
                     console.error('Failed to parse response as JSON:', parseError);
                     data = { error: 'Invalid response from server' };
                 }
 
-                if (response.ok) {
-                    messageDiv.className = 'message success';
-                    messageDiv.textContent = 'Thank you! We\'ll be in touch soon.';
-                    messageDiv.style.display = 'block';
-                    form.reset();
-                    setTimeout(() => {
-                        closeModal();
-                    }, 2000);
+                if (response.ok && data.success && data.user) {
+                    // Store user data and automatically log them in
+                    currentUser = data.user;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    // Close modal and show logged in state
+                    closeModal();
+                    showLoggedInState();
                 } else {
                     messageDiv.className = 'message error';
                     messageDiv.textContent = data.error || `Something went wrong (${response.status}). Please try again.`;
@@ -667,7 +670,7 @@
                 messageDiv.style.display = 'block';
             } finally {
                 submitButton.disabled = false;
-                submitButton.textContent = 'Submit';
+                submitButton.textContent = 'Sign Up';
             }
         }
 
