@@ -1,13 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+import argparse
 from dotenv import load_dotenv
 from src.gmail_client import send_email
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+# Configure CORS to allow requests from any origin when deployed (for GitHub Pages)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 @app.route('/api/signup', methods=['POST'])
 def handle_signup():
@@ -51,5 +53,15 @@ def health():
     return jsonify({'status': 'ok'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    parser = argparse.ArgumentParser(description='Run Journie Flask server')
+    parser.add_argument('--local', action='store_true', help='Run in local mode (localhost:5000)')
+    args = parser.parse_args()
+    
+    if args.local:
+        # Local development mode
+        app.run(debug=True, host='127.0.0.1', port=5000)
+    else:
+        # Production mode for Render.com
+        port = int(os.environ.get('PORT', 5000))
+        app.run(debug=False, host='0.0.0.0', port=port)
 

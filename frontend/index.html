@@ -296,8 +296,16 @@
                 message: document.getElementById('message').value
             };
 
+            // Determine API endpoint based on current location
+            // If frontend is running on localhost (local development), use local backend
+            // Otherwise (GitHub Pages, production, etc.), always use Render.com backend
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const apiUrl = isLocalhost 
+                ? 'http://localhost:5000/api/signup'  // Local development with --local flag
+                : 'https://journalai-ergq.onrender.com/api/signup';  // Production on Render.com
+
             try {
-                const response = await fetch('http://localhost:5000/api/signup', {
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
