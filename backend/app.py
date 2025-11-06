@@ -75,7 +75,7 @@ def handle_signup():
                 cursor.execute("""
                     INSERT INTO users (email, first_name, last_name, created_at, updated_at)
                     VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    RETURNING id, email, first_name, last_name
+                    RETURNING id, email, first_name, last_name, phone_number, approved
                 """, (email, first_name, last_name))
                 
                 user = cursor.fetchone()
@@ -84,14 +84,16 @@ def handle_signup():
                 if not user:
                     raise Exception("Failed to create user")
                 
-                user_id, user_email, user_first_name, user_last_name = user
+                user_id, user_email, user_first_name, user_last_name, user_phone_number, user_approved = user
                 
                 # Prepare user data for response
                 user_data = {
                     'id': user_id,
                     'email': user_email,
                     'first_name': user_first_name,
-                    'last_name': user_last_name
+                    'last_name': user_last_name,
+                    'phone_number': user_phone_number,
+                    'approved': user_approved
                 }
                 
                 # Store user info in session

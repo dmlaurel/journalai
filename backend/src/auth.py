@@ -81,7 +81,7 @@ def verify_login_code(email, code):
             
             # Check if user exists and code matches
             cursor.execute("""
-                SELECT id, email, first_name, last_name, one_time_code, one_time_code_expiry
+                SELECT id, email, first_name, last_name, phone_number, approved, one_time_code, one_time_code_expiry
                 FROM users 
                 WHERE email = %s AND one_time_code = %s
             """, (email, code))
@@ -92,7 +92,7 @@ def verify_login_code(email, code):
                 cursor.close()
                 return False, None
             
-            user_id, user_email, first_name, last_name, stored_code, expiry = user
+            user_id, user_email, first_name, last_name, phone_number, approved, stored_code, expiry = user
             
             # Check if code has expired
             if expiry and datetime.utcnow() > expiry:
@@ -113,7 +113,9 @@ def verify_login_code(email, code):
                 'id': user_id,
                 'email': user_email,
                 'first_name': first_name,
-                'last_name': last_name
+                'last_name': last_name,
+                'phone_number': phone_number,
+                'approved': approved
             }
             
             logger.info(f"Login successful for {email}")
@@ -129,7 +131,7 @@ def get_user_by_email(email):
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, email, first_name, last_name 
+                SELECT id, email, first_name, last_name, phone_number, approved
                 FROM users 
                 WHERE email = %s
             """, (email,))
@@ -141,7 +143,9 @@ def get_user_by_email(email):
                     'id': user[0],
                     'email': user[1],
                     'first_name': user[2],
-                    'last_name': user[3]
+                    'last_name': user[3],
+                    'phone_number': user[4],
+                    'approved': user[5]
                 }
             return None
     except Exception as e:

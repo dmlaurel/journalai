@@ -64,5 +64,5 @@ echo "   DB_USER=postgres"
 echo "   DB_PASSWORD=postgres"
 echo ""
 echo "2. Run migrations:"
-echo "   python migrations/migrate.py"
+echo "   python run_migrations.py"
 

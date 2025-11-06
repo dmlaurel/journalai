@@ -6,10 +6,10 @@ import sys
 import re
 import argparse
 import time
-import yaml
 from dotenv import load_dotenv
 from src.elevenlabs_client import ElevenLabsClient
 from src.twilio_client import TwilioClient
+from src.db import get_db_connection
 
 load_dotenv()
 
@@ -34,44 +34,72 @@ def format_phone_number(phone: str) -> str:
     return cleaned
 
 
-def load_call_config(config_path: str) -> dict:
-    """Load YAML call configuration and validate required fields."""
-    if not os.path.isfile(config_path):
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    with open(config_path, 'r', encoding='utf-8') as f:
-        data = yaml.safe_load(f) or {}
-
-    numbers = data.get('numbers')
-    if not numbers or not isinstance(numbers, list):
-        raise ValueError("'numbers' list is required in config")
-
-    return data
+def get_approved_users() -> list:
+    """Query database for all users with approved status 'APPROVED' and phone numbers."""
+    approved_users = []
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, email, first_name, last_name, phone_number
+                FROM users
+                WHERE approved = 'APPROVED' AND phone_number IS NOT NULL
+                ORDER BY id
+            """)
+            
+            rows = cursor.fetchall()
+            for row in rows:
+                user_id, email, first_name, last_name, phone_number = row
+                approved_users.append({
+                    'id': user_id,
+                    'email': email,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'phone_number': phone_number
+                })
+            
+            cursor.close()
+    except Exception as e:
+        raise Exception(f"Error querying database: {e}")
+    
+    return approved_users
 
 
 def main():
-    """Main function to initiate agent calls from YAML config."""
+    """Main function to initiate agent calls to all approved users."""
     print("=" * 60)
     print("ElevenLabs Agent Multi-Call")
     print("=" * 60)
 
     # Parse CLI args
-    parser = argparse.ArgumentParser(description="Initiate calls to multiple numbers via ElevenLabs agent")
-    parser.add_argument('--config', '-c', default=os.path.join(os.path.dirname(__file__), 'call_config.yaml'),
-                        help="Path to call_config.yaml (default: ./call_config.yaml)")
+    parser = argparse.ArgumentParser(description="Initiate calls to all approved users via ElevenLabs agent")
+    parser.add_argument('--agent-id', '-a', default=None,
+                        help="ElevenLabs Agent ID (default: uses hardcoded AGENT_ID)")
+    parser.add_argument('--label', '-l', default='JournalAI Phone Number',
+                        help="Label for phone number in ElevenLabs (default: 'JournalAI Phone Number')")
     args = parser.parse_args()
 
-    # Load configuration
+    # Query approved users from database
+    print("\n📊 Querying database for approved users...")
     try:
-        config = load_call_config(args.config)
+        approved_users = get_approved_users()
     except Exception as e:
-        print(f"❌ Error loading config: {e}")
-        print("Create a call_config.yaml with a 'numbers' list.")
+        print(f"❌ Error querying database: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
-    numbers = config.get('numbers', [])
-    cfg_agent_id = config.get('agent_id')
-    cfg_label = config.get('label', 'JournalAI Phone Number')
+    if not approved_users:
+        print("⚠️  No approved users with phone numbers found in database.")
+        sys.exit(0)
+
+    print(f"✓ Found {len(approved_users)} approved user(s) with phone numbers")
+
+    # Extract phone numbers from approved users
+    numbers = [user['phone_number'] for user in approved_users]
+    effective_agent_id = args.agent_id or AGENT_ID
+    cfg_label = args.label
 
     # Initialize clients
     try:
@@ -82,10 +110,7 @@ def main():
         sys.exit(1)
 
     print(f"\nYour Twilio phone number: {twilio_client.phone_number}")
-    print(f"Default Agent ID: {AGENT_ID}")
-    effective_agent_id = cfg_agent_id or AGENT_ID
-    if cfg_agent_id:
-        print(f"Using Agent ID from config: {effective_agent_id}")
+    print(f"Agent ID: {effective_agent_id}")
 
     # Get or create phone number in ElevenLabs
     print("\n🔗 Connecting Twilio number to ElevenLabs...")
@@ -114,17 +139,20 @@ def main():
     except Exception as e:
         print(f"⚠️  Could not associate agent (may already be associated): {e}")
 
-    # Iterate over numbers and initiate calls
-    total_numbers = len(numbers)
-    print(f"\n📋 {total_numbers} numbers loaded from config")
-    for idx, raw_number in enumerate(numbers, start=1):
+    # Iterate over approved users and initiate calls
+    total_numbers = len(approved_users)
+    print(f"\n📋 Initiating calls to {total_numbers} approved user(s)")
+    for idx, user in enumerate(approved_users, start=1):
+        raw_number = user['phone_number']
+        user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('email', 'Unknown')
+        
         try:
             formatted_number = format_phone_number(str(raw_number))
         except Exception as e:
-            print(f"\n[{idx}] ❌ Skipping invalid number '{raw_number}': {e}")
+            print(f"\n[{idx}] ❌ Skipping invalid number for user {user_name} ({raw_number}): {e}")
             continue
 
-        print(f"\n[{idx}] 📞 Initiating call to {formatted_number} using ElevenLabs API...")
+        print(f"\n[{idx}] 📞 Initiating call to {user_name} ({formatted_number}) using ElevenLabs API...")
         try:
             call_response = elevenlabs_client.make_outbound_call(
                 agent_id=effective_agent_id,

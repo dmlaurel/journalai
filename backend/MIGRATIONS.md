@@ -65,11 +65,6 @@ pip install -r requirements.txt
 python run_migrations.py
 ```
 
-Or directly:
-```bash
-python migrations/migrate.py
-```
-
 ## Render.com Deployment
 
 ### Automatic Migration on Deploy

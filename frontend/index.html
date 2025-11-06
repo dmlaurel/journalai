@@ -366,6 +366,29 @@
             font-size: 1.1rem;
             color: #000;
         }
+
+        .approval-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .approval-status.approved {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .approval-status.pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .approval-status.rejected {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
     </style>
 </head>
 <body>
@@ -428,6 +451,14 @@
             <div class="profile-field">
                 <div class="profile-field-label">Name</div>
                 <div class="profile-field-value" id="profileName"></div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Phone Number</div>
+                <div class="profile-field-value" id="profilePhoneNumber"></div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Approval Status</div>
+                <div class="profile-field-value" id="profileApprovalStatus"></div>
             </div>
         </div>
     </div>
@@ -528,6 +559,32 @@
                 document.getElementById('profileName').textContent = currentUser.first_name && currentUser.last_name
                     ? `${currentUser.first_name} ${currentUser.last_name}`
                     : currentUser.first_name || currentUser.last_name || 'Not set';
+                
+                // Display phone number
+                const phoneNumberElement = document.getElementById('profilePhoneNumber');
+                phoneNumberElement.textContent = currentUser.phone_number || 'Not set';
+                
+                // Display approval status with appropriate styling
+                const approvalStatusElement = document.getElementById('profileApprovalStatus');
+                const approvalStatus = currentUser.approved || 'PENDING_APPROVAL';
+                let statusText = '';
+                let statusClass = '';
+                
+                if (approvalStatus === 'APPROVED') {
+                    statusText = 'Approved';
+                    statusClass = 'approved';
+                } else if (approvalStatus === 'PENDING_APPROVAL') {
+                    statusText = 'Pending Approval';
+                    statusClass = 'pending';
+                } else if (approvalStatus === 'REJECTED') {
+                    statusText = 'Rejected';
+                    statusClass = 'rejected';
+                } else {
+                    statusText = approvalStatus;
+                    statusClass = 'pending';
+                }
+                
+                approvalStatusElement.innerHTML = `<span class="approval-status ${statusClass}">${statusText}</span>`;
             }
         }
 
