@@ -130,16 +130,21 @@ def get_user_by_email(email):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
+            
+            # First, check what database we're connected to
+            cursor.execute("SELECT current_database();")
+            db_name = cursor.fetchone()[0]
+            
+            # Now query the user
             cursor.execute("""
                 SELECT id, email, first_name, last_name, phone_number, approved
                 FROM users 
                 WHERE email = %s
             """, (email,))
             user = cursor.fetchone()
-            cursor.close()
             
             if user:
-                return {
+                user_dict = {
                     'id': user[0],
                     'email': user[1],
                     'first_name': user[2],
@@ -147,6 +152,11 @@ def get_user_by_email(email):
                     'phone_number': user[4],
                     'approved': user[5]
                 }
+                # Log for debugging
+                logger.info(f"Querying database '{db_name}' - User {email} approval status: {user[5]} (type: {type(user[5])})")
+                cursor.close()
+                return user_dict
+            cursor.close()
             return None
     except Exception as e:
         logger.error(f"Error getting user: {str(e)}", exc_info=True)

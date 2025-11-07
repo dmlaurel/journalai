@@ -49,6 +49,18 @@ def _init_connection_pool():
                 conn_string
             )
             logger.info("Database connection pool initialized")
+            
+            # Verify connection by checking database name
+            try:
+                test_conn = _connection_pool.getconn()
+                cursor = test_conn.cursor()
+                cursor.execute("SELECT current_database(), current_user;")
+                db_info = cursor.fetchone()
+                cursor.close()
+                _connection_pool.putconn(test_conn)
+                logger.info(f"Connected to database: {db_info[0]}, user: {db_info[1]}")
+            except Exception as e:
+                logger.warning(f"Could not verify database connection: {e}")
         except Exception as e:
             logger.error(f"Failed to create connection pool: {str(e)}")
             raise

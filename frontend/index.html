@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Journie - Your Daily Journal Companion</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -95,6 +96,11 @@
 
         .landing-page {
             display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .landing-page.hidden {
@@ -461,6 +467,24 @@
                 <div class="profile-field-value" id="profileApprovalStatus"></div>
             </div>
         </div>
+        
+        <!-- Call History Chart Section (only shown if approved) -->
+        <div id="callHistorySection" style="display: none; margin-top: 3rem;">
+            <h2>Call History</h2>
+            <!-- Loading Spinner -->
+            <div id="callHistoryLoading" style="display: none; margin-top: 2rem; text-align: center; padding: 2rem;">
+                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #000; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <p style="margin-top: 1rem; color: #666;">Loading call history...</p>
+            </div>
+            <!-- Chart Container -->
+            <div id="callHistoryChartContainer" style="display: none; margin-top: 1.5rem;">
+                <canvas id="callHistoryChart" style="max-height: 400px;"></canvas>
+            </div>
+            <div id="selectedDayInfo" style="margin-top: 1.5rem; padding: 1rem; background-color: #f5f5f5; border-radius: 4px; display: none;">
+                <h3 id="selectedDayTitle" style="margin-bottom: 0.5rem; font-size: 1.1rem;"></h3>
+                <div id="selectedDayConversations"></div>
+            </div>
+        </div>
     </div>
 
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
@@ -483,6 +507,11 @@
                     <div class="form-group">
                         <label for="lastName">Last Name</label>
                         <input type="text" id="lastName" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phoneNumber">Phone Number</label>
+                        <input type="tel" id="phoneNumber" name="phone_number" placeholder="+1234567890" required>
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.25rem;">Please include country code (e.g., +1 for US)</small>
                     </div>
                     <div class="form-group">
                         <label for="message">How or why do you want to use Journie? (Optional)</label>
@@ -533,16 +562,326 @@
         // Check if user is logged in on page load
         let currentUser = null;
         
-        function init() {
+        async function fetchFreshUserData(email) {
+            try {
+                const apiUrl = getApiUrl(`/api/user/profile?email=${encodeURIComponent(email)}`);
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch user data: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.user) {
+                    console.log('Fetched fresh user data:', data.user);
+                    currentUser = data.user;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    return data.user;
+                }
+                console.warn('No user data in response:', data);
+                return null;
+            } catch (error) {
+                console.error('Error fetching fresh user data:', error);
+                return null;
+            }
+        }
+        
+        async function init() {
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 try {
-                    currentUser = JSON.parse(savedUser);
-                    showLoggedInState();
+                    const parsedUser = JSON.parse(savedUser);
+                    // Fetch fresh user data from server to get latest approval status
+                    const freshUser = await fetchFreshUserData(parsedUser.email);
+                    if (freshUser) {
+                        currentUser = freshUser;
+                        showLoggedInState();
+                    } else {
+                        // If we can't fetch fresh data, use cached data but still show logged in state
+                        currentUser = parsedUser;
+                        showLoggedInState();
+                    }
                 } catch (e) {
                     console.error('Failed to parse saved user:', e);
                     localStorage.removeItem('currentUser');
                 }
+            }
+        }
+
+        let callHistoryChart = null;
+
+        async function fetchAndDisplayCallHistory() {
+            if (!currentUser || currentUser.approved !== 'APPROVED') {
+                document.getElementById('callHistorySection').style.display = 'none';
+                return;
+            }
+
+            // Show the section and loading spinner
+            document.getElementById('callHistorySection').style.display = 'block';
+            document.getElementById('callHistoryLoading').style.display = 'block';
+            document.getElementById('callHistoryChartContainer').style.display = 'none';
+
+            try {
+                const apiUrl = getApiUrl(`/api/user/conversations?email=${encodeURIComponent(currentUser.email)}`);
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch conversation data');
+                }
+                
+                const data = await response.json();
+                
+                // Hide loading spinner
+                document.getElementById('callHistoryLoading').style.display = 'none';
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    // Show chart container and create chart
+                    document.getElementById('callHistoryChartContainer').style.display = 'block';
+                    createCallHistoryChart(data.data);
+                } else {
+                    // No data - hide the section
+                    document.getElementById('callHistorySection').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching call history:', error);
+                // Hide loading spinner and section on error
+                document.getElementById('callHistoryLoading').style.display = 'none';
+                document.getElementById('callHistorySection').style.display = 'none';
+            }
+        }
+
+        function createCallHistoryChart(conversationData) {
+            const ctx = document.getElementById('callHistoryChart');
+            
+            // Destroy existing chart if it exists
+            if (callHistoryChart) {
+                callHistoryChart.destroy();
+            }
+            
+            // Reverse the data so oldest is on the left, newest on the right
+            const reversedData = [...conversationData].reverse();
+            
+            // Prepare data for chart
+            const labels = reversedData.map(d => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            const data = reversedData.map(d => d.total_minutes);
+            
+            // Create chart
+            callHistoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Call Time (minutes)',
+                        data: data,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: 'rgba(0, 0, 0, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            // Use reversedData directly since that's what the chart is displaying
+                            const dayData = reversedData[index];
+                            showDayConversations(dayData);
+                        }
+                    },
+                    onHover: (event, elements) => {
+                        ctx.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                    }
+                }
+            });
+        }
+
+        async function showDayConversations(dayData) {
+            const infoDiv = document.getElementById('selectedDayInfo');
+            const titleDiv = document.getElementById('selectedDayTitle');
+            const conversationsDiv = document.getElementById('selectedDayConversations');
+            
+            const date = new Date(dayData.date);
+            titleDiv.textContent = `Conversations on ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${dayData.total_minutes} minutes total)`;
+            
+            if (dayData.conversations && dayData.conversations.length > 0) {
+                const isSingleCall = dayData.conversations.length === 1;
+                
+                let html = '<div style="margin-top: 0.5rem;">';
+                
+                if (isSingleCall) {
+                    // Single call - show summary and transcript headers directly (no "Call 1")
+                    html += '<div id="single-call-details">';
+                    html += '<div style="text-align: center; padding: 1rem;"><div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #000; border-radius: 50%; animation: spin 1s linear infinite;"></div><p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">Loading...</p></div>';
+                    html += '</div>';
+                } else {
+                    // Multiple calls - show enumerated list
+                    dayData.conversations.forEach((conv, index) => {
+                        const callNumber = index + 1;
+                        html += `<div style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" onclick="toggleCallDetails('${conv.conversation_id}', ${callNumber})">`;
+                        html += `<strong style="font-size: 1.1rem;">Call ${callNumber}</strong>`;
+                        html += `<div id="call-${conv.conversation_id}-details" style="display: none; margin-top: 1rem;"></div>`;
+                        html += `</div>`;
+                    });
+                }
+                
+                html += '</div>';
+                conversationsDiv.innerHTML = html;
+                
+                // If single call, fetch details immediately
+                if (isSingleCall) {
+                    await fetchAndDisplayCallDetails(dayData.conversations[0].conversation_id, 'single-call-details');
+                }
+            } else {
+                conversationsDiv.innerHTML = '<p style="color: #666; margin-top: 0.5rem;">No conversations found for this day.</p>';
+            }
+            
+            infoDiv.style.display = 'block';
+        }
+
+        window.toggleCallDetails = async function(conversationId, callNumber) {
+            const detailsDiv = document.getElementById(`call-${conversationId}-details`);
+            
+            if (!detailsDiv) {
+                console.error('Details div not found:', `call-${conversationId}-details`);
+                return;
+            }
+            
+            if (detailsDiv.style.display === 'none' || detailsDiv.innerHTML === '') {
+                // Show loading
+                detailsDiv.innerHTML = '<div style="text-align: center; padding: 1rem;"><div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #000; border-radius: 50%; animation: spin 1s linear infinite;"></div><p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">Loading...</p></div>';
+                detailsDiv.style.display = 'block';
+                
+                // Fetch and display details
+                await fetchAndDisplayCallDetails(conversationId, `call-${conversationId}-details`);
+            } else {
+                // Toggle off
+                detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        async function fetchAndDisplayCallDetails(conversationId, targetDivId) {
+            // targetDivId can be either 'call-{conversationId}-details' or 'single-call-details'
+            const detailsDiv = document.getElementById(targetDivId || `call-${conversationId}-details`);
+            
+            if (!detailsDiv) {
+                console.error('Details div not found:', targetDivId || `call-${conversationId}-details`);
+                return;
+            }
+            
+            try {
+                const apiUrl = getApiUrl(`/api/conversation/details?conversation_id=${encodeURIComponent(conversationId)}`);
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch conversation details');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    detailsDiv.innerHTML = renderCallDetailsContent(data.summary, data.transcript, conversationId);
+                } else {
+                    detailsDiv.innerHTML = '<p style="color: #666;">Failed to load conversation details.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching call details:', error);
+                detailsDiv.innerHTML = '<p style="color: #666;">Error loading conversation details.</p>';
+            }
+        }
+
+        function renderCallDetailsContent(summary, transcript, conversationId) {
+            let html = '';
+            
+            // Summary section
+            html += '<div style="margin-bottom: 1.5rem;">';
+            html += '<h4 style="margin-bottom: 0.5rem; font-size: 1rem; font-weight: 600;">Summary</h4>';
+            if (summary) {
+                html += `<div style="padding: 0.75rem; background-color: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${summary}</div>`;
+            } else {
+                html += '<p style="color: #666; font-style: italic;">No summary available.</p>';
+            }
+            html += '</div>';
+            
+            // Show transcript button (only if transcript exists)
+            if (transcript) {
+                html += '<div style="margin-top: 1rem;">';
+                html += `<button onclick="showTranscriptModal('${conversationId}')" style="padding: 0.5rem 1rem; background-color: #000; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-family: inherit;">Show Transcript</button>`;
+                html += '</div>';
+                
+                // Store transcript in a data attribute or global variable for the modal
+                if (!window.transcriptCache) {
+                    window.transcriptCache = {};
+                }
+                window.transcriptCache[conversationId] = transcript;
+            }
+            
+            return html;
+        }
+        
+        window.showTranscriptModal = function(conversationId) {
+            const transcript = window.transcriptCache && window.transcriptCache[conversationId];
+            
+            if (!transcript) {
+                alert('Transcript not available');
+                return;
+            }
+            
+            // Create modal overlay
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'transcriptModalOverlay';
+            modalOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 2000; display: flex; justify-content: center; align-items: center;';
+            modalOverlay.onclick = function(e) {
+                if (e.target === modalOverlay) {
+                    closeTranscriptModal();
+                }
+            };
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = 'background-color: #fff; padding: 2rem; border-radius: 8px; max-width: 90%; max-height: 90vh; width: 800px; display: flex; flex-direction: column; position: relative;';
+            modal.onclick = function(e) {
+                e.stopPropagation();
+            };
+            
+            // Modal header
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;';
+            header.innerHTML = '<h2 style="margin: 0; font-size: 1.5rem;">Transcript</h2><button onclick="closeTranscriptModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;">&times;</button>';
+            
+            // Transcript content
+            const content = document.createElement('div');
+            content.style.cssText = 'padding: 1rem; background-color: #f9f9f9; border-radius: 4px; white-space: pre-wrap; overflow-y: auto; flex: 1; max-height: calc(90vh - 150px); font-size: 0.95rem; line-height: 1.6;';
+            content.textContent = transcript;
+            
+            modal.appendChild(header);
+            modal.appendChild(content);
+            modalOverlay.appendChild(modal);
+            document.body.appendChild(modalOverlay);
+        }
+        
+        window.closeTranscriptModal = function() {
+            const modal = document.getElementById('transcriptModalOverlay');
+            if (modal) {
+                modal.remove();
             }
         }
 
@@ -567,6 +906,7 @@
                 // Display approval status with appropriate styling
                 const approvalStatusElement = document.getElementById('profileApprovalStatus');
                 const approvalStatus = currentUser.approved || 'PENDING_APPROVAL';
+                console.log('Current user approval status:', approvalStatus, 'Full user object:', currentUser);
                 let statusText = '';
                 let statusClass = '';
                 
@@ -585,6 +925,13 @@
                 }
                 
                 approvalStatusElement.innerHTML = `<span class="approval-status ${statusClass}">${statusText}</span>`;
+                
+                // Fetch and display call history if approved
+                if (approvalStatus === 'APPROVED') {
+                    fetchAndDisplayCallHistory();
+                } else {
+                    document.getElementById('callHistorySection').style.display = 'none';
+                }
             }
         }
 
@@ -684,6 +1031,7 @@
                 email: document.getElementById('email').value.trim(),
                 first_name: document.getElementById('firstName').value.trim(),
                 last_name: document.getElementById('lastName').value.trim(),
+                phone_number: document.getElementById('phoneNumber').value.trim(),
                 message: document.getElementById('message').value.trim()
             };
 
@@ -708,9 +1056,15 @@
                 }
 
                 if (response.ok && data.success && data.user) {
-                    // Store user data and automatically log them in
-                    currentUser = data.user;
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    // Fetch fresh user data to ensure we have latest approval status
+                    const freshUser = await fetchFreshUserData(data.user.email);
+                    if (freshUser) {
+                        currentUser = freshUser;
+                    } else {
+                        // Fallback to data from signup response if fresh fetch fails
+                        currentUser = data.user;
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    }
                     
                     // Close modal and show logged in state
                     closeModal();
@@ -820,9 +1174,15 @@
                 }
 
                 if (response.ok && data.success && data.user) {
-                    // Store user data
-                    currentUser = data.user;
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    // Fetch fresh user data to ensure we have latest approval status
+                    const freshUser = await fetchFreshUserData(data.user.email);
+                    if (freshUser) {
+                        currentUser = freshUser;
+                    } else {
+                        // Fallback to data from login response if fresh fetch fails
+                        currentUser = data.user;
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    }
                     
                     // Close modal and show logged in state
                     closeLoginModal();

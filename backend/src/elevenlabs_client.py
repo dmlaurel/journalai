@@ -473,7 +473,7 @@ class ElevenLabsClient:
         
         Args:
             conversation_id: ElevenLabs conversation ID
-            
+        
         Returns:
             Transcription text as string, or None if not available
         """
@@ -483,14 +483,152 @@ class ElevenLabsClient:
             # Try different possible attributes for transcription
             if hasattr(conversation, 'transcript'):
                 transcript = conversation.transcript
-                if isinstance(transcript, str):
+                
+                # Handle list of transcript objects (new format)
+                if isinstance(transcript, list):
+                    transcript_parts = []
+                    for item in transcript:
+                        # Skip items that are clearly metadata-only (have role but no message)
+                        # Check if this item has a role attribute but message is None
+                        has_role = False
+                        has_message = False
+                        message_text = None
+                        
+                        # Check if item has role attribute
+                        if hasattr(item, 'role'):
+                            has_role = True
+                        
+                        # Try to extract message text - ONLY from message attribute
+                        if hasattr(item, 'message'):
+                            msg_val = getattr(item, 'message')
+                            if msg_val and isinstance(msg_val, str) and msg_val.strip():
+                                message_text = msg_val.strip()
+                                has_message = True
+                        
+                        # If item has role but no message, skip it entirely (it's metadata)
+                        if has_role and not has_message:
+                            continue
+                        
+                        # Only proceed if we have actual message text
+                        if not message_text:
+                            # Try other text attributes as fallback, but be strict
+                            for attr in ['text', 'content']:
+                                if hasattr(item, attr):
+                                    val = getattr(item, attr)
+                                    if val and isinstance(val, str) and val.strip():
+                                        message_text = val.strip()
+                                        break
+                        
+                        # If still no text, try model_dump but ONLY extract message/text/content
+                        if not message_text and hasattr(item, 'model_dump'):
+                            try:
+                                item_dict = item.model_dump()
+                                # Only extract from message, text, or content - nothing else
+                                message_text = (item_dict.get('message') or 
+                                               item_dict.get('text') or 
+                                               item_dict.get('content'))
+                                if message_text:
+                                    message_text = str(message_text).strip()
+                                    # If it's still an object representation, skip it
+                                    if message_text.startswith("role=") or 'AgentMetadata(' in message_text:
+                                        message_text = None
+                            except:
+                                pass
+                        
+                        # Try dict access as last resort
+                        if not message_text and isinstance(item, dict):
+                            message_text = (item.get('message') or 
+                                           item.get('text') or 
+                                           item.get('content'))
+                            if message_text:
+                                message_text = str(message_text).strip()
+                                # If it's an object representation, skip it
+                                if message_text.startswith("role=") or 'AgentMetadata(' in message_text:
+                                    message_text = None
+                        
+                        # Only add if we have actual message text (not None, not empty, not object representation)
+                        if message_text and len(message_text) > 0:
+                            # Final check - filter out any object representations that slipped through
+                            is_object_repr = False
+                            
+                            # Check for Pydantic model representations
+                            if message_text.startswith("role="):
+                                is_object_repr = True
+                            elif 'role=' in message_text and ('agent_metadata=' in message_text or 'AgentMetadata(' in message_text):
+                                is_object_repr = True
+                            elif 'ConversationHistoryTranscriptToolCallCommonModel(' in message_text:
+                                is_object_repr = True
+                            elif 'ConversationHistoryTranscriptOtherToolsResultCommonModel(' in message_text:
+                                is_object_repr = True
+                            elif 'ConversationTurnMetrics(' in message_text:
+                                is_object_repr = True
+                            elif 'LlmUsageOutput(' in message_text or 'LlmInputOutputTokensUsage(' in message_text:
+                                is_object_repr = True
+                            elif 'MetricRecord(' in message_text:
+                                is_object_repr = True
+                            # Check for patterns like: role='agent' agent_metadata=...
+                            elif (message_text.count("=") > 3 and message_text.count("(") > 0 and message_text.count(")") > 0):
+                                # If it looks like a Python object representation, skip it
+                                if any(keyword in message_text for keyword in ['agent_metadata', 'tool_calls', 'tool_results', 'conversation_turn_metrics', 'llm_usage', 'time_in_call_secs']):
+                                    is_object_repr = True
+                            
+                            if not is_object_repr:
+                                transcript_parts.append(message_text)
+                    
+                    if transcript_parts:
+                        # Join and clean up the transcript
+                        full_transcript = '\n'.join(transcript_parts)
+                        # Remove any remaining object representations that might have slipped through
+                        lines = full_transcript.split('\n')
+                        cleaned_lines = []
+                        for line in lines:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            # Skip lines that look like object representations
+                            if (line.startswith("role=") or 
+                                'AgentMetadata(' in line or 
+                                'ConversationHistoryTranscript' in line or
+                                'ConversationTurnMetrics(' in line or
+                                'LlmUsageOutput(' in line or
+                                'MetricRecord(' in line or
+                                ('agent_metadata=' in line and '=' in line and '(' in line) or
+                                ('tool_calls=' in line and '[' in line) or
+                                ('tool_results=' in line and '[' in line) or
+                                ('conversation_turn_metrics=' in line) or
+                                ('llm_usage=' in line) or
+                                ('time_in_call_secs=' in line)):
+                                continue
+                            cleaned_lines.append(line)
+                        return '\n'.join(cleaned_lines)
+                
+                # Handle string format
+                elif isinstance(transcript, str):
                     return transcript
+                
+                # Handle object with text attribute
                 elif hasattr(transcript, 'text'):
                     return transcript.text
                 elif hasattr(transcript, 'full_transcript'):
                     return transcript.full_transcript
+                elif hasattr(transcript, 'content'):
+                    return transcript.content
+            
             elif hasattr(conversation, 'transcription'):
-                return conversation.transcription
+                transcript = conversation.transcription
+                if isinstance(transcript, list):
+                    # Handle list format
+                    transcript_parts = []
+                    for item in transcript:
+                        if hasattr(item, 'text'):
+                            transcript_parts.append(item.text)
+                        elif hasattr(item, 'content'):
+                            transcript_parts.append(item.content)
+                        elif isinstance(item, str):
+                            transcript_parts.append(item)
+                    if transcript_parts:
+                        return '\n'.join(transcript_parts)
+                return transcript
             elif hasattr(conversation, 'transcript_text'):
                 return conversation.transcript_text
             elif hasattr(conversation, 'full_transcript'):
